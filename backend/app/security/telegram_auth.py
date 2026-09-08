@@ -30,7 +30,10 @@ class TelegramUser(BaseModel):
 
 
 def verify_telegram_init_data(init_data: str) -> TelegramUser:
-    parsed = dict(parse_qsl(init_data, strict_parsing=True))
+    try:
+        parsed = dict(parse_qsl(init_data, strict_parsing=True))
+    except ValueError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Malformed initData")
     received_hash = parsed.pop("hash", None)
     if not received_hash:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing hash in initData")
