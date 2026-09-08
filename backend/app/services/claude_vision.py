@@ -10,7 +10,11 @@ from pydantic import BaseModel, ValidationError
 
 from app.core.config import settings
 
-_client = Anthropic(api_key=settings.anthropic_api_key)
+# TODO: перейти на CodeMie (внутренний EPAM-гейтвей). Сейчас известен только
+# OpenAI-совместимый /v1/embeddings через Keycloak-токен — для vision нужен
+# отдельный chat/completions эндпоинт и имя vision-модели, которых пока нет.
+# До этого момента ANTHROPIC_API_KEY optional и распознавание отключено.
+_client = Anthropic(api_key=settings.anthropic_api_key) if settings.anthropic_api_key else None
 
 EXTRACTION_PROMPT = """\
 Ты обрабатываешь скриншот из приложения брокера или инвестиционной платформы.
@@ -48,6 +52,9 @@ class ExtractionError(Exception):
 
 
 def extract_trade_from_screenshot(image_bytes: bytes, media_type: str) -> ExtractedTrade:
+    if _client is None:
+        raise ExtractionError("AI-распознавание скриншотов пока не настроено")
+
     image_b64 = base64.b64encode(image_bytes).decode()
 
     response = _client.messages.create(

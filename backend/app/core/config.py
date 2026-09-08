@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     supabase_jwt_secret: str  # тот же секрет, что в Supabase Auth settings
 
-    anthropic_api_key: str
+    # Optional пока: vision-распознавание скриншотов недоступно без него
+    # (см. services/claude_vision.py). Планируется переезд на CodeMie —
+    # см. TODO там же.
+    anthropic_api_key: str | None = None
     claude_vision_model: str = "claude-sonnet-5"
 
     # KEK для envelope encryption. В проде — ключ из KMS/Vault, не из .env.
