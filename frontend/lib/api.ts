@@ -84,6 +84,20 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ broker_name: brokerName }),
     }),
+
+  uploadReport: (token: string, file: File, brokerAccountId: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("broker_account_id", brokerAccountId);
+    return request<{ job_id: string; status: string; detected_broker?: string }>(
+      "/reports/upload",
+      token,
+      { method: "POST", body: form }
+    );
+  },
+
+  getReportJob: (token: string, jobId: string) =>
+    request<ReportJob>(`/reports/${jobId}`, token),
 };
 
 export interface BrokerAccountDto {
@@ -133,4 +147,17 @@ export interface ScreenshotJobDto {
   status: "pending" | "processing" | "done" | "failed";
   extracted_json: Record<string, unknown> | null;
   error_message: string | null;
+}
+
+export interface ReportJob {
+  id: string;
+  status: "pending" | "processing" | "done" | "failed";
+  report_type: string;
+  parsed_trades_count?: number;
+  imported_assets_count?: number;
+  imported_transactions_count?: number;
+  error_message?: string;
+  parsing_warnings?: Array<{ line_number?: number; message: string }>;
+  created_at: string;
+  processed_at?: string;
 }

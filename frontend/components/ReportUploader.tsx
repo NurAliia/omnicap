@@ -1,28 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api, type ReportJob } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/app/providers";
 
 interface ReportUploaderProps {
   brokerAccountId: string;
   onUploadComplete?: () => void;
 }
 
-interface ReportJob {
-  id: string;
-  status: "pending" | "processing" | "done" | "failed";
-  report_type: string;
-  parsed_trades_count?: number;
-  imported_assets_count?: number;
-  imported_transactions_count?: number;
-  error_message?: string;
-  parsing_warnings?: Array<{ line_number?: number; message: string }>;
-  created_at: string;
-  processed_at?: string;
-}
-
 export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUploaderProps) {
+  const { status, token } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -47,27 +36,25 @@ export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUplo
       return;
     }
 
+    if (!token) {
+      setError("Not authenticated");
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("broker_account_id", brokerAccountId);
-
-      const response = await api.post<{
-        job_id: string;
-        status: string;
-        detected_broker?: string;
-      }>("/reports/upload", formData);
+      const response = await api.uploadReport(token, selectedFile, brokerAccountId);
 
       setJobId(response.job_id);
       setDetectedBroker(response.detected_broker || null);
       setJobStatus({
-        ...response,
+        id: response.job_id,
+        status: response.status as ReportJob["status"],
         report_type: response.detected_broker || "unknown",
         created_at: new Date().toISOString()
-      } as ReportJob);
+      });
 
       // Начинаем polling статуса
       pollJobStatus(response.job_id);
@@ -78,12 +65,14 @@ export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUplo
   };
 
   const pollJobStatus = async (id: string) => {
+    if (!token) return;
+
     const maxAttempts = 60; // 2 минуты (60 * 2s)
     let attempts = 0;
 
     const poll = async () => {
       try {
-        const job = await api.get<ReportJob>(`/reports/${id}`);
+        const job = await api.getReportJob(token, id);
         setJobStatus(job);
 
         if (job.status === "done") {
