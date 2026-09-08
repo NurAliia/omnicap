@@ -74,7 +74,7 @@ create table public.transactions (
     fee_enc             bytea,
     tx_date             date not null,
     source              text not null default 'manual' check (source in ('manual','ai_screenshot')),
-    screenshot_job_id   uuid references public.screenshot_jobs(id) on delete set null,
+    screenshot_job_id   uuid, -- FK добавляется ниже через ALTER TABLE, screenshot_jobs ещё не создана
     created_at          timestamptz not null default now()
 );
 
