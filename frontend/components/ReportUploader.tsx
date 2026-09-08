@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
 
 interface ReportUploaderProps {
   brokerAccountId: string;
@@ -126,72 +127,100 @@ export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUplo
   };
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-white">
-      <h3 className="text-lg font-semibold">Upload Broker Report</h3>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+      <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
+        Загрузка отчета брокера
+      </span>
 
       {!jobId ? (
         <>
-          <div>
-            <label className="block text-sm font-medium mb-2">Select Report File</label>
-            <p className="text-xs text-gray-500 mb-2">
-              We'll automatically detect your broker (IB, Bybit, TBC Capital, etc.)
-            </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+            <label style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)" }}>
+              Система автоматически определит брокера (IB, Bybit, TBC Capital и др.)
+            </label>
             <input
               type="file"
               accept=".csv,.xlsx,.xls,.xml"
               onChange={handleFileChange}
-              className="w-full p-2 border rounded"
               disabled={uploading}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                background: "var(--color-bg-secondary)",
+                color: "var(--color-text)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                fontSize: "var(--text-sm)",
+              }}
             />
             {selectedFile && (
-              <p className="text-sm text-gray-600 mt-1">
-                Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text-secondary)", margin: 0 }}>
+                {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} МБ)
               </p>
             )}
           </div>
 
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            fullWidth
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700"
           >
-            {uploading ? "Uploading..." : "Upload Report"}
-          </button>
+            {uploading ? "Загрузка..." : "Загрузить отчет"}
+          </Button>
         </>
       ) : (
-        <div className="space-y-3">
-          <div className="p-3 bg-gray-50 rounded">
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <div
+            style={{
+              padding: "var(--space-3)",
+              background: "var(--color-bg-secondary)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
             {detectedBroker && (
-              <p className="text-sm font-medium mb-1">
-                Detected: <span className="text-blue-600">{detectedBroker}</span>
+              <p style={{ fontSize: "var(--text-sm)", margin: "0 0 8px 0" }}>
+                Определен: <strong style={{ color: "var(--color-accent)" }}>{detectedBroker}</strong>
               </p>
             )}
-            <p className="text-sm font-medium">Job ID: {jobId}</p>
-            <p className="text-sm">
-              Status: <span className="font-semibold">{jobStatus?.status}</span>
+            <p style={{ fontSize: "var(--text-sm)", margin: "0 0 4px 0", color: "var(--color-text-secondary)" }}>
+              ID: {jobId}
+            </p>
+            <p style={{ fontSize: "var(--text-sm)", margin: 0 }}>
+              Статус: <strong>{jobStatus?.status === "pending" ? "ожидание" : jobStatus?.status === "processing" ? "обработка" : jobStatus?.status}</strong>
             </p>
             {jobStatus?.status === "processing" && (
-              <p className="text-sm text-gray-600">Processing report, please wait...</p>
+              <p style={{ fontSize: "var(--text-sm)", margin: "8px 0 0 0", color: "var(--color-text-secondary)" }}>
+                Обрабатываем отчет, подождите...
+              </p>
             )}
           </div>
 
           {jobStatus?.status === "done" && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded">
-              <p className="font-semibold text-green-800">✓ Import Completed</p>
-              <ul className="text-sm text-green-700 mt-2 space-y-1">
-                <li>Parsed trades: {jobStatus.parsed_trades_count}</li>
-                <li>Imported assets: {jobStatus.imported_assets_count}</li>
-                <li>Imported transactions: {jobStatus.imported_transactions_count}</li>
+            <div
+              style={{
+                padding: "var(--space-3)",
+                background: "rgba(34, 197, 94, 0.1)",
+                border: "1px solid rgba(34, 197, 94, 0.3)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <p style={{ fontWeight: 600, margin: "0 0 8px 0" }}>✓ Импорт завершен</p>
+              <ul style={{ fontSize: "var(--text-sm)", margin: 0, paddingLeft: "20px" }}>
+                <li>Распознано сделок: {jobStatus.parsed_trades_count}</li>
+                <li>Создано активов: {jobStatus.imported_assets_count}</li>
+                <li>Создано транзакций: {jobStatus.imported_transactions_count}</li>
               </ul>
               {jobStatus.parsing_warnings && jobStatus.parsing_warnings.length > 0 && (
-                <details className="mt-2">
-                  <summary className="text-sm text-yellow-700 cursor-pointer">
-                    {jobStatus.parsing_warnings.length} warnings
+                <details style={{ marginTop: "8px" }}>
+                  <summary style={{ fontSize: "var(--text-sm)", cursor: "pointer", color: "var(--color-text-secondary)" }}>
+                    {jobStatus.parsing_warnings.length} предупреждений
                   </summary>
-                  <ul className="text-xs text-yellow-600 mt-1 space-y-1 pl-4">
+                  <ul style={{ fontSize: "var(--text-xs)", margin: "8px 0 0 0", paddingLeft: "20px", color: "var(--color-text-secondary)" }}>
                     {jobStatus.parsing_warnings.map((w, i) => (
                       <li key={i}>
-                        {w.line_number ? `Line ${w.line_number}: ` : ""}{w.message}
+                        {w.line_number ? `Строка ${w.line_number}: ` : ""}{w.message}
                       </li>
                     ))}
                   </ul>
@@ -201,25 +230,43 @@ export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUplo
           )}
 
           {jobStatus?.status === "failed" && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded">
-              <p className="font-semibold text-red-800">✗ Processing Failed</p>
-              <p className="text-sm text-red-700 mt-1">{jobStatus.error_message}</p>
+            <div
+              style={{
+                padding: "var(--space-3)",
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <p style={{ fontWeight: 600, margin: "0 0 8px 0" }}>✗ Ошибка обработки</p>
+              <p style={{ fontSize: "var(--text-sm)", margin: 0 }}>{jobStatus.error_message}</p>
             </div>
           )}
 
-          <button
+          <Button
+            type="button"
+            variant="secondary"
+            fullWidth
             onClick={handleReset}
             disabled={uploading}
-            className="w-full py-2 px-4 bg-gray-600 text-white rounded hover:bg-gray-700"
           >
-            Upload Another Report
-          </button>
+            Загрузить другой отчет
+          </Button>
         </div>
       )}
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded">
-          <p className="text-sm text-red-700">{error}</p>
+        <div
+          role="alert"
+          style={{
+            padding: "var(--space-3)",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            borderRadius: "var(--radius-md)",
+            fontSize: "var(--text-sm)",
+          }}
+        >
+          {error}
         </div>
       )}
     </div>
