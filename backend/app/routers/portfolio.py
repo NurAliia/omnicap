@@ -19,7 +19,12 @@ def _load_assets(sb, user_id: str) -> list[dict]:
     user_row = sb.table("users").select("encrypted_dek").eq("id", user_id).single().execute()
     dek = unwrap_dek(from_pg_bytea(user_row.data["encrypted_dek"]))
 
-    assets = sb.table("assets").select("*").eq("user_id", user_id).execute()
+    assets = (
+        sb.table("assets")
+        .select("*,broker_accounts(broker_name)")
+        .eq("user_id", user_id)
+        .execute()
+    )
 
     tickers = [a["ticker"] for a in assets.data]
     prices: dict[str, dict] = {}
@@ -42,6 +47,8 @@ def _load_assets(sb, user_id: str) -> list[dict]:
 
         result.append({
             "id": a["id"],
+            "broker_account_id": a["broker_account_id"],
+            "broker_name": (a.get("broker_accounts") or {}).get("broker_name"),
             "ticker": a["ticker"],
             "asset_type": a["asset_type"],
             "currency": a["currency"],

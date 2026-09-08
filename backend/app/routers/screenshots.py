@@ -9,7 +9,7 @@
 """
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, UploadFile, status
 
 from app.core.config import settings
 from app.security.crypto import decrypt_field, encrypt_field, from_pg_bytea, to_pg_bytea, unwrap_dek
@@ -27,16 +27,30 @@ BUCKET = "screenshots"
 async def upload_screenshot(
     file: UploadFile,
     background_tasks: BackgroundTasks,
+    broker_account_id: str | None = Form(default=None),
     user: CurrentUser = Depends(get_current_user),
 ):
     if file.content_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(400, f"Unsupported media type: {file.content_type}")
 
+    sb = get_service_client()
+
+    if broker_account_id is not None:
+        owned = (
+            sb.table("broker_accounts")
+            .select("id")
+            .eq("id", broker_account_id)
+            .eq("user_id", user.id)
+            .maybe_single()
+            .execute()
+        )
+        if not owned or not owned.data:
+            raise HTTPException(404, "Broker account not found")
+
     content = await file.read()
     if len(content) > settings.max_screenshot_size_mb * 1024 * 1024:
         raise HTTPException(400, "Screenshot too large")
 
-    sb = get_service_client()
     storage_path = f"{user.id}/{uuid.uuid4()}"
     sb.storage.from_(BUCKET).upload(
         storage_path, content, {"content-type": file.content_type}
@@ -44,13 +58,18 @@ async def upload_screenshot(
 
     job = (
         sb.table("screenshot_jobs")
-        .insert({"user_id": user.id, "status": "pending", "storage_path": storage_path})
+        .insert({
+            "user_id": user.id,
+            "status": "pending",
+            "storage_path": storage_path,
+            "broker_account_id": broker_account_id,
+        })
         .execute()
     )
     job_id = job.data[0]["id"]
 
     background_tasks.add_task(
-        process_screenshot_job, job_id, user.id, storage_path, file.content_type
+        process_screenshot_job, job_id, user.id, storage_path, file.content_type, broker_account_id
     )
     return {"job_id": job_id, "status": "pending"}
 
@@ -72,7 +91,13 @@ async def get_screenshot_job(job_id: str, user: CurrentUser = Depends(get_curren
     return result.data
 
 
-def process_screenshot_job(job_id: str, user_id: str, storage_path: str, media_type: str) -> None:
+def process_screenshot_job(
+    job_id: str,
+    user_id: str,
+    storage_path: str,
+    media_type: str,
+    broker_account_id: str | None = None,
+) -> None:
     """
     Выполняется в BackgroundTasks (для прод-нагрузки — вынести в Celery/RQ worker,
     сигнатура не меняется). Гарантирует удаление файла из Storage в finally.
@@ -83,7 +108,7 @@ def process_screenshot_job(job_id: str, user_id: str, storage_path: str, media_t
     try:
         image_bytes = sb.storage.from_(BUCKET).download(storage_path)
         trade = extract_trade_from_screenshot(image_bytes, media_type)
-        _save_trade_as_asset(sb, user_id, job_id, trade)
+        _save_trade_as_asset(sb, user_id, job_id, trade, broker_account_id)
 
         sb.table("screenshot_jobs").update({
             "status": "done",
@@ -106,25 +131,28 @@ def process_screenshot_job(job_id: str, user_id: str, storage_path: str, media_t
         sb.storage.from_(BUCKET).remove([storage_path])
 
 
-def _save_trade_as_asset(sb, user_id: str, job_id: str, trade) -> None:
+def _save_trade_as_asset(sb, user_id: str, job_id: str, trade, broker_account_id: str | None) -> None:
     user_row = sb.table("users").select("encrypted_dek").eq("id", user_id).single().execute()
     dek = unwrap_dek(from_pg_bytea(user_row.data["encrypted_dek"]))
 
-    existing = (
+    existing_query = (
         sb.table("assets")
         .select("id")
         .eq("user_id", user_id)
         .eq("ticker", trade.ticker)
-        .is_("broker_account_id", "null")
-        .maybe_single()
-        .execute()
     )
+    if broker_account_id is None:
+        existing_query = existing_query.is_("broker_account_id", "null")
+    else:
+        existing_query = existing_query.eq("broker_account_id", broker_account_id)
+    existing = existing_query.maybe_single().execute()
 
     if existing and existing.data:
         asset_id = existing.data["id"]
     else:
         inserted = sb.table("assets").insert({
             "user_id": user_id,
+            "broker_account_id": broker_account_id,
             "ticker": trade.ticker,
             "asset_type": trade.asset_type,
             "currency": trade.currency,

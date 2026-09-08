@@ -54,9 +54,10 @@ export const api = {
       token
     ),
 
-  uploadScreenshot: (token: string, file: File) => {
+  uploadScreenshot: (token: string, file: File, brokerAccountId?: string) => {
     const form = new FormData();
     form.append("file", file);
+    if (brokerAccountId) form.append("broker_account_id", brokerAccountId);
     return request<{ job_id: string; status: string }>(
       "/screenshots/upload",
       token,
@@ -66,10 +67,29 @@ export const api = {
 
   getScreenshotJob: (token: string, jobId: string) =>
     request<ScreenshotJobDto>(`/screenshots/${jobId}`, token),
+
+  listBrokerAccounts: (token: string) =>
+    request<BrokerAccountDto[]>("/broker-accounts", token),
+
+  createBrokerAccount: (token: string, brokerName: string) =>
+    request<BrokerAccountDto>("/broker-accounts", token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ broker_name: brokerName }),
+    }),
 };
+
+export interface BrokerAccountDto {
+  id: string;
+  broker_name: string;
+  base_currency: string;
+  created_at: string;
+}
 
 export interface AssetDto {
   id: string;
+  broker_account_id: string | null;
+  broker_name: string | null;
   ticker: string;
   asset_type: string;
   currency: string;

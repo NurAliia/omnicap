@@ -2,8 +2,10 @@
 
 import { useRef, useState } from "react";
 
+import { BrokerAccountPicker } from "@/components/BrokerAccountPicker";
 import { useMainButton } from "@/hooks/useMainButton";
 import { api } from "@/lib/api";
+import type { BrokerAccountDto } from "@/lib/api";
 import { useAuth } from "@/app/providers";
 import { getTelegramWebApp } from "@/lib/telegram";
 
@@ -12,6 +14,7 @@ const POLL_TIMEOUT_MS = 30_000;
 
 type UploadState =
   | { phase: "idle" }
+  | { phase: "picking" }
   | { phase: "uploading" }
   | { phase: "processing"; jobId: string }
   | { phase: "done" }
@@ -19,6 +22,7 @@ type UploadState =
 
 const PHASE_LABEL: Record<UploadState["phase"], string> = {
   idle: "Добавить сделку по скриншоту",
+  picking: "Добавить сделку по скриншоту",
   uploading: "Загрузка...",
   processing: "Распознаём скриншот...",
   done: "Добавить сделку по скриншоту",
@@ -29,10 +33,13 @@ export function ScreenshotUploader({ onDone }: { onDone: () => void }) {
   const auth = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>({ phase: "idle" });
+  const brokerAccountIdRef = useRef<string | undefined>(undefined);
   const isBusy = state.phase === "uploading" || state.phase === "processing";
 
   // MainButton — нативная кнопка Telegram, закреплена внизу экрана вне
   // скролла и красится в button_color пользователя автоматически.
+  // Сначала спрашиваем портфель/брокера (см. BrokerAccountPicker) —
+  // только после выбора открываем системный файловый диалог.
   // NB: программный input.click() из колбэка MainButton у части WebView-
   // реализаций может не засчитаться как "user gesture" для файлового
   // диалога — стоит явно проверить на реальных клиентах (iOS/Android/
@@ -40,14 +47,20 @@ export function ScreenshotUploader({ onDone }: { onDone: () => void }) {
   // вернуть видимый DOM-элемент как точку тапа.
   useMainButton({
     text: PHASE_LABEL[state.phase],
-    onClick: () => inputRef.current?.click(),
+    onClick: () => setState({ phase: "picking" }),
     disabled: isBusy,
     progress: isBusy,
-    visible: auth.status === "ready",
+    visible: auth.status === "ready" && state.phase !== "picking",
   });
 
   if (auth.status !== "ready") return null;
   const { token } = auth;
+
+  function handleBrokerPicked(brokerAccount: BrokerAccountDto | null) {
+    brokerAccountIdRef.current = brokerAccount?.id;
+    setState({ phase: "idle" });
+    inputRef.current?.click();
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -55,7 +68,7 @@ export function ScreenshotUploader({ onDone }: { onDone: () => void }) {
 
     setState({ phase: "uploading" });
     try {
-      const { job_id } = await api.uploadScreenshot(token, file);
+      const { job_id } = await api.uploadScreenshot(token, file, brokerAccountIdRef.current);
       setState({ phase: "processing", jobId: job_id });
       await pollJob(job_id);
     } catch (err) {
@@ -100,6 +113,12 @@ export function ScreenshotUploader({ onDone }: { onDone: () => void }) {
         onChange={handleFileChange}
         style={{ display: "none" }}
       />
+      {state.phase === "picking" && (
+        <BrokerAccountPicker
+          onPick={handleBrokerPicked}
+          onCancel={() => setState({ phase: "idle" })}
+        />
+      )}
       {state.phase === "error" && (
         <p
           role="alert"
