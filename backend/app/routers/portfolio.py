@@ -7,7 +7,7 @@
 """
 from fastapi import APIRouter, Depends, Query
 
-from app.security.crypto import decrypt_field, unwrap_dek
+from app.security.crypto import decrypt_field, from_pg_bytea, unwrap_dek
 from app.security.deps import CurrentUser, get_current_user
 from app.services.fx_rates import FxConversionError, convert, get_rates_snapshot
 from app.services.supabase_client import get_service_client
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 def _load_assets(sb, user_id: str) -> list[dict]:
     user_row = sb.table("users").select("encrypted_dek").eq("id", user_id).single().execute()
-    dek = unwrap_dek(bytes.fromhex(user_row.data["encrypted_dek"]))
+    dek = unwrap_dek(from_pg_bytea(user_row.data["encrypted_dek"]))
 
     assets = sb.table("assets").select("*").eq("user_id", user_id).execute()
 
@@ -31,8 +31,8 @@ def _load_assets(sb, user_id: str) -> list[dict]:
 
     result = []
     for a in assets.data:
-        qty = float(decrypt_field(dek, bytes.fromhex(a["quantity_enc"])))
-        avg_price = float(decrypt_field(dek, bytes.fromhex(a["avg_purchase_price_enc"])))
+        qty = float(decrypt_field(dek, from_pg_bytea(a["quantity_enc"])))
+        avg_price = float(decrypt_field(dek, from_pg_bytea(a["avg_purchase_price_enc"])))
         current_price = prices.get(a["ticker"], {}).get("price")
 
         cost_basis = qty * avg_price

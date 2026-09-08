@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.security.crypto import generate_wrapped_dek
+from app.security.crypto import generate_wrapped_dek, to_pg_bytea
 from app.security.supabase_jwt import mint_access_token
 from app.security.telegram_auth import verify_telegram_init_data
 from app.services.supabase_client import get_service_client
@@ -49,7 +49,7 @@ async def login_with_telegram(body: TelegramLoginRequest):
                 "first_name": tg_user.first_name,
                 "last_name": tg_user.last_name,
                 "photo_url": tg_user.photo_url,
-                "encrypted_dek": generate_wrapped_dek().hex(),
+                "encrypted_dek": to_pg_bytea(generate_wrapped_dek()),
             })
             .execute()
         )

@@ -53,3 +53,21 @@ def encrypt_field(dek: bytes, value: str) -> bytes:
 
 def decrypt_field(dek: bytes, token: bytes) -> str:
     return _fernet_for_dek(dek).decrypt(token).decode()
+
+
+def to_pg_bytea(data: bytes) -> str:
+    """
+    Кодирует bytes для записи в bytea-колонку через PostgREST JSON API.
+
+    Postgres распознаёт hex-текст как bytea только с префиксом \\x — без
+    него применяется legacy "escape"-формат, который трактует строку как
+    буквальные ASCII-байты, а не как hex для декодирования. Голый .hex()
+    без этого префикса — то, из-за чего это всплыло в проде: значения
+    писались, но не читались обратно (see git log).
+    """
+    return "\\x" + data.hex()
+
+
+def from_pg_bytea(value: str) -> bytes:
+    """Обратная операция to_pg_bytea — PostgREST возвращает bytea с тем же префиксом \\x."""
+    return bytes.fromhex(value.removeprefix("\\x"))

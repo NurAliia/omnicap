@@ -12,7 +12,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 
 from app.core.config import settings
-from app.security.crypto import decrypt_field, encrypt_field, unwrap_dek
+from app.security.crypto import decrypt_field, encrypt_field, from_pg_bytea, to_pg_bytea, unwrap_dek
 from app.security.deps import CurrentUser, get_current_user
 from app.services.claude_vision import ExtractionError, extract_trade_from_screenshot
 from app.services.supabase_client import get_service_client
@@ -108,7 +108,7 @@ def process_screenshot_job(job_id: str, user_id: str, storage_path: str, media_t
 
 def _save_trade_as_asset(sb, user_id: str, job_id: str, trade) -> None:
     user_row = sb.table("users").select("encrypted_dek").eq("id", user_id).single().execute()
-    dek = unwrap_dek(bytes.fromhex(user_row.data["encrypted_dek"]))
+    dek = unwrap_dek(from_pg_bytea(user_row.data["encrypted_dek"]))
 
     existing = (
         sb.table("assets")
@@ -128,8 +128,8 @@ def _save_trade_as_asset(sb, user_id: str, job_id: str, trade) -> None:
             "ticker": trade.ticker,
             "asset_type": trade.asset_type,
             "currency": trade.currency,
-            "quantity_enc": encrypt_field(dek, "0").hex(),
-            "avg_purchase_price_enc": encrypt_field(dek, "0").hex(),
+            "quantity_enc": to_pg_bytea(encrypt_field(dek, "0")),
+            "avg_purchase_price_enc": to_pg_bytea(encrypt_field(dek, "0")),
         }).execute()
         asset_id = inserted.data[0]["id"]
 
@@ -137,8 +137,8 @@ def _save_trade_as_asset(sb, user_id: str, job_id: str, trade) -> None:
         "user_id": user_id,
         "asset_id": asset_id,
         "tx_type": "buy",
-        "quantity_enc": encrypt_field(dek, str(trade.quantity)).hex(),
-        "price_enc": encrypt_field(dek, str(trade.price)).hex(),
+        "quantity_enc": to_pg_bytea(encrypt_field(dek, str(trade.quantity))),
+        "price_enc": to_pg_bytea(encrypt_field(dek, str(trade.price))),
         "tx_date": trade.date or "now()",
         "source": "ai_screenshot",
         "screenshot_job_id": job_id,
@@ -158,8 +158,8 @@ def _recompute_asset_position(sb, dek: bytes, user_id: str, asset_id: str) -> No
 
     total_qty, total_cost = 0.0, 0.0
     for tx in txs.data:
-        qty = float(decrypt_field(dek, bytes.fromhex(tx["quantity_enc"])))
-        price = float(decrypt_field(dek, bytes.fromhex(tx["price_enc"])))
+        qty = float(decrypt_field(dek, from_pg_bytea(tx["quantity_enc"])))
+        price = float(decrypt_field(dek, from_pg_bytea(tx["price_enc"])))
         if tx["tx_type"] == "buy":
             total_cost += qty * price
             total_qty += qty
@@ -170,6 +170,6 @@ def _recompute_asset_position(sb, dek: bytes, user_id: str, asset_id: str) -> No
     avg_price = (total_cost / total_qty) if total_qty > 0 else 0.0
 
     sb.table("assets").update({
-        "quantity_enc": encrypt_field(dek, str(total_qty)).hex(),
-        "avg_purchase_price_enc": encrypt_field(dek, str(avg_price)).hex(),
+        "quantity_enc": to_pg_bytea(encrypt_field(dek, str(total_qty))),
+        "avg_purchase_price_enc": to_pg_bytea(encrypt_field(dek, str(avg_price))),
     }).eq("id", asset_id).execute()
