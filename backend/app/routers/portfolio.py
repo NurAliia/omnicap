@@ -5,14 +5,26 @@
 хранятся зашифрованными (см. security/crypto.py), а DEK пользователя есть
 только у бэкенда. Прямой клиентский select вернул бы bytea-мусор.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
+from app.routers.screenshots import _save_trade_as_asset
 from app.security.crypto import decrypt_field, from_pg_bytea, unwrap_dek
 from app.security.deps import CurrentUser, get_current_user
 from app.services.fx_rates import FxConversionError, convert, get_rates_snapshot
 from app.services.supabase_client import get_service_client
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+
+
+class ManualAssetCreate(BaseModel):
+    ticker: str = Field(min_length=1, max_length=32)
+    asset_type: str = Field(pattern="^(stock|etf|bond|crypto|currency|other)$")
+    currency: str = Field(min_length=3, max_length=3)
+    quantity: float = Field(gt=0)
+    price: float = Field(gt=0)
+    date: str | None = None
+    broker_account_id: str | None = None
 
 
 def _load_assets(sb, user_id: str) -> list[dict]:
@@ -68,6 +80,30 @@ def _load_assets(sb, user_id: str) -> list[dict]:
 async def list_assets(user: CurrentUser = Depends(get_current_user)):
     sb = get_service_client()
     return _load_assets(sb, user.id)
+
+
+@router.post("/assets/manual", status_code=status.HTTP_201_CREATED)
+async def add_manual_asset(
+    payload: ManualAssetCreate,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Ручной ввод сделки, пока AI-распознавание скриншотов не настроено (см. claude_vision.py)."""
+    sb = get_service_client()
+
+    if payload.broker_account_id is not None:
+        owned = (
+            sb.table("broker_accounts")
+            .select("id")
+            .eq("id", payload.broker_account_id)
+            .eq("user_id", user.id)
+            .maybe_single()
+            .execute()
+        )
+        if not owned or not owned.data:
+            raise HTTPException(404, "Broker account not found")
+
+    _save_trade_as_asset(sb, user.id, None, payload, payload.broker_account_id, source="manual")
+    return {"status": "ok"}
 
 
 @router.get("/summary")

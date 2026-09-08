@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import auth, broker_accounts, fx, portfolio, screenshots
+from app.routers import auth, broker_accounts, fx, portfolio, reports, screenshots
 
 app = FastAPI(title="Omnicap API")
 
@@ -17,6 +17,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(screenshots.router)
+app.include_router(reports.router)
 app.include_router(portfolio.router)
 app.include_router(fx.router)
 app.include_router(broker_accounts.router)

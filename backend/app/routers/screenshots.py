@@ -108,7 +108,7 @@ def process_screenshot_job(
     try:
         image_bytes = sb.storage.from_(BUCKET).download(storage_path)
         trade = extract_trade_from_screenshot(image_bytes, media_type)
-        _save_trade_as_asset(sb, user_id, job_id, trade, broker_account_id)
+        _save_trade_as_asset(sb, user_id, job_id, trade, broker_account_id, source="ai_screenshot")
 
         sb.table("screenshot_jobs").update({
             "status": "done",
@@ -131,7 +131,9 @@ def process_screenshot_job(
         sb.storage.from_(BUCKET).remove([storage_path])
 
 
-def _save_trade_as_asset(sb, user_id: str, job_id: str, trade, broker_account_id: str | None) -> None:
+def _save_trade_as_asset(
+    sb, user_id: str, job_id: str | None, trade, broker_account_id: str | None, source: str
+) -> None:
     user_row = sb.table("users").select("encrypted_dek").eq("id", user_id).single().execute()
     dek = unwrap_dek(from_pg_bytea(user_row.data["encrypted_dek"]))
 
@@ -168,7 +170,7 @@ def _save_trade_as_asset(sb, user_id: str, job_id: str, trade, broker_account_id
         "quantity_enc": to_pg_bytea(encrypt_field(dek, str(trade.quantity))),
         "price_enc": to_pg_bytea(encrypt_field(dek, str(trade.price))),
         "tx_date": trade.date or "now()",
-        "source": "ai_screenshot",
+        "source": source,
         "screenshot_job_id": job_id,
     }).execute()
 

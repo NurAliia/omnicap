@@ -68,6 +68,13 @@ export const api = {
   getScreenshotJob: (token: string, jobId: string) =>
     request<ScreenshotJobDto>(`/screenshots/${jobId}`, token),
 
+  addManualAsset: (token: string, payload: ManualAssetInput) =>
+    request<{ status: string }>("/portfolio/assets/manual", token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }),
+
   listBrokerAccounts: (token: string) =>
     request<BrokerAccountDto[]>("/broker-accounts", token),
 
@@ -84,6 +91,16 @@ export interface BrokerAccountDto {
   broker_name: string;
   base_currency: string;
   created_at: string;
+}
+
+export interface ManualAssetInput {
+  ticker: string;
+  asset_type: "stock" | "etf" | "bond" | "crypto" | "currency" | "other";
+  currency: string;
+  quantity: number;
+  price: number;
+  date: string | null;
+  broker_account_id?: string | null;
 }
 
 export interface AssetDto {

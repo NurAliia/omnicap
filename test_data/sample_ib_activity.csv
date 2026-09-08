@@ -1,0 +1,5 @@
+Trades,Header,DataDiscriminator,Asset Category,Currency,Symbol,Date/Time,Quantity,T. Price,C. Price,Proceeds,Comm/Fee,Basis,Realized P/L,MTM P/L,Code
+Trades,Data,Order,Stocks,USD,AAPL,2024-01-15,100,150.00,150.00,-15000.00,-1.00,-15001.00,0,0,
+Trades,Data,Order,Stocks,USD,MSFT,2024-01-16,50,380.00,380.00,-19000.00,-1.00,-19001.00,0,0,
+Trades,Data,Order,ETFs,USD,SPY,2024-01-17,20,450.00,450.00,-9000.00,-0.50,-9000.50,0,0,
+Trades,Data,Order,Stocks,USD,GOOGL,2024-01-18,-30,140.00,140.00,4200.00,-0.80,4199.20,50.00,0,

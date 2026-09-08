@@ -1,8 +1,8 @@
 "use client";
 
+import { AddAssetFlow } from "@/components/AddAssetFlow";
 import { AssetList, AssetListSkeleton } from "@/components/AssetList";
 import { PortfolioSummary } from "@/components/PortfolioSummary";
-import { ScreenshotUploader } from "@/components/ScreenshotUploader";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAuth } from "./providers";
 
@@ -32,7 +32,7 @@ export default function PortfolioPage() {
 
       <PortfolioSummary />
 
-      <ScreenshotUploader onDone={refresh} />
+      <AddAssetFlow onDone={refresh} />
 
       {isLoading ? <AssetListSkeleton /> : <AssetList assets={assets} />}
     </main>
