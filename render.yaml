@@ -1,0 +1,28 @@
+# Render Blueprint — коммитится в репозиторий, значения секретов НЕ хранятся
+# здесь (sync: false = задаются вручную в Render Dashboard после первого деплоя).
+# Подключение: Render Dashboard -> New -> Blueprint -> выбрать этот репозиторий.
+services:
+  - type: web
+    name: omnicap-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ALLOWED_ORIGINS_RAW
+        sync: false # напр. "https://omnicap.vercel.app"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MASTER_KEK_B64
+        sync: false
+      - key: INTERNAL_CRON_SECRET
+        sync: false
