@@ -1,7 +1,8 @@
 """
 Курсы валют для агрегации мультивалютного портфеля в одну сумму.
 
-Источник — frankfurter.app (ЕЦБ, без ключа API, только фиатные валюты).
+Источник — frankfurter.dev (ЕЦБ, без ключа API, только фиатные валюты;
+бывший frankfurter.app — старый домен теперь 301-редиректит сюда).
 Курсы кэшируются в public.fx_rates и обновляются периодической задачей
 (refresh_fx_rates, см. routers/fx.py) — конвертация всегда читает из кэша,
 а не бьёт во внешний API на каждый запрос портфеля.
@@ -14,7 +15,7 @@ import httpx
 
 from app.services.supabase_client import get_service_client
 
-FX_API_URL = "https://api.frankfurter.app/latest?from=USD"
+FX_API_URL = "https://api.frankfurter.dev/v1/latest?from=USD"
 STABLECOIN_TO_USD = {"USDT", "USDC", "DAI"}
 STALE_AFTER_HOURS = 24
 
