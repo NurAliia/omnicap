@@ -30,8 +30,9 @@ async def login_with_telegram(body: TelegramLoginRequest):
         .maybe_single()
         .execute()
     )
-
-    if existing.data:
+    # supabase-py возвращает None (не объект с data=None), когда maybe_single
+    # не находит ни одной строки — обнаружено вживую при первом реальном логине.
+    if existing and existing.data:
         user_id = existing.data["id"]
         sb.table("users").update({
             "telegram_username": tg_user.username,

@@ -66,7 +66,8 @@ async def get_screenshot_job(job_id: str, user: CurrentUser = Depends(get_curren
         .maybe_single()
         .execute()
     )
-    if not result.data:
+    # maybe_single() возвращает None (не объект с data=None), если строка не найдена
+    if not result or not result.data:
         raise HTTPException(404, "Job not found")
     return result.data
 
@@ -119,7 +120,7 @@ def _save_trade_as_asset(sb, user_id: str, job_id: str, trade) -> None:
         .execute()
     )
 
-    if existing.data:
+    if existing and existing.data:
         asset_id = existing.data["id"]
     else:
         inserted = sb.table("assets").insert({
