@@ -11,13 +11,15 @@ interface ReportUploaderProps {
 }
 
 export function ReportUploader({ brokerAccountId, onUploadComplete }: ReportUploaderProps) {
-  const { status, token } = useAuth();
+  const auth = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<ReportJob | null>(null);
   const [detectedBroker, setDetectedBroker] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const token = auth.status === "ready" ? auth.token : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
